@@ -88,8 +88,40 @@ export function summarize(emails) {
   });
   const weekly = [...weeks.values()].sort((a, b) => a.start - b.start);
 
+  // daily volume, gaps filled with zeros up to today
+  const dayStart = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); return x.getTime(); };
+  const dmap = new Map();
+  emails.forEach((e) => {
+    if (e.status === 'deleted') return;
+    const k = dayStart(e.received);
+    const d = dmap.get(k) || { start: k, pending: 0, completed: 0 };
+    d[e.status] += 1;
+    dmap.set(k, d);
+  });
+  const daily = [];
+  if (dmap.size) {
+    const last = dayStart(Date.now());
+    for (let d = new Date(Math.min(...dmap.keys())); d.getTime() <= last; d.setDate(d.getDate() + 1)) {
+      const k = dayStart(d);
+      daily.push(dmap.get(k) || { start: k, pending: 0, completed: 0 });
+    }
+  }
+
+  // how long pending emails have been waiting
+  const now = Date.now();
+  const ageDays = pending.map((e) => Math.floor((now - new Date(e.received)) / 86400000));
+  const buckets = [['Today', (d) => d < 1], ['1–2 days', (d) => d >= 1 && d <= 2], ['3–7 days', (d) => d >= 3 && d <= 7],
+    ['8–14 days', (d) => d >= 8 && d <= 14], ['15+ days', (d) => d >= 15]];
+  const ageBuckets = buckets.map(([label, t]) => ({ label, value: ageDays.filter(t).length }));
+  const avgAge = ageDays.length ? ageDays.reduce((a, b) => a + b, 0) / ageDays.length : 0;
+
+  const received = emails.filter((e) => e.status !== 'deleted');
+  const last7 = received.filter((e) => now - new Date(e.received) < 7 * 86400000).length;
+  const prev7 = received.filter((e) => { const a = now - new Date(e.received); return a >= 7 * 86400000 && a < 14 * 86400000; }).length;
+
   const active = pending.length + completed.length;
   return {
+    daily, ageBuckets, avgAge, last7, prev7,
     total: emails.length,
     pendingCount: pending.length,
     completedCount: completed.length,
