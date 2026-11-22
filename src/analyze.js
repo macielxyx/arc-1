@@ -24,25 +24,66 @@ export function enrich(records) {
     if (!seen.has(key)) seen.set(key, r);
   });
   const start = new Date(START_DATE).getTime();
-  return [...seen.values()]
+  const emails = [...seen.values()]
     .filter((r) => r.received && new Date(r.received).getTime() >= start)
     .map((r) => {
       const types = [], flags = [], owners = [];
       r.categories.forEach((c) => {
-        const k = c.toLowerCase().trim();
-        if (k.startsWith(OWNER_PREFIX)) owners.push(titleCase(c.slice(OWNER_PREFIX.length).trim()));
-        else if (typeMap.has(k)) types.push(typeMap.get(k));
+        const name = String(c).trim();
+        const k = name.toLowerCase();
+        if (!k) return;
+        if (k.startsWith(OWNER_PREFIX)) owners.push(titleCase(name.slice(OWNER_PREFIX.length).trim()));
         else if (flagMap.has(k)) flags.push(flagMap.get(k));
+        else types.push(typeMap.get(k) || name);
       });
+      const unique = (list) => [...new Map(list.map((item) => [item.toLowerCase(), item])).values()];
+      const typeList = unique(types);
+      const ownerList = unique(owners);
       return {
         ...r,
-        types: types.length ? types : ['Uncategorized'],
-        owners: owners.length ? owners : ['Unassigned'],
-        flags,
+        types: typeList.length ? typeList : ['Uncategorized'],
+        owners: ownerList.length ? ownerList : ['Unassigned'],
+        flags: unique(flags),
         status: statusOf(r.folder),
       };
     })
     .filter((e) => e.status !== 'excluded');
+  return collapseInboxThreads(emails);
+}
+
+function threadKey(subject) {
+  return String(subject || '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .replace(/^(?:(?:re|fw|fwd)\s*:\s*)+/g, '')
+    .trim();
+}
+
+// Replies sitting in the Inbox are separate messages. One subject is one open request.
+function collapseInboxThreads(emails) {
+  const rest = [];
+  const groups = new Map();
+  emails.forEach((email) => {
+    const key = email.status === 'pending' ? threadKey(email.subject) : '';
+    if (!key) { rest.push(email); return; }
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(email);
+  });
+  const unique = (list) => [...new Map(list.map((item) => [item.toLowerCase(), item])).values()];
+  const merged = [...groups.values()].map((list) => {
+    const ordered = [...list].sort((a, b) => new Date(a.received) - new Date(b.received));
+    const types = unique(ordered.flatMap((e) => e.types).filter((t) => t !== 'Uncategorized'));
+    const owners = unique(ordered.flatMap((e) => e.owners).filter((t) => t !== 'Unassigned'));
+    return {
+      ...ordered[0],
+      folder: 'Inbox',
+      status: 'pending',
+      types: types.length ? types : ['Uncategorized'],
+      owners: owners.length ? owners : ['Unassigned'],
+      flags: unique(ordered.flatMap((e) => e.flags)),
+    };
+  });
+  return [...rest, ...merged];
 }
 
 function tally(emails, keyFn) {
@@ -100,7 +141,7 @@ export function summarize(emails) {
   });
   const daily = [];
   if (dmap.size) {
-    const last = dayStart(Date.now());
+    const last = Math.max(...dmap.keys());
     for (let d = new Date(Math.min(...dmap.keys())); d.getTime() <= last; d.setDate(d.getDate() + 1)) {
       const k = dayStart(d);
       daily.push(dmap.get(k) || { start: k, pending: 0, completed: 0 });

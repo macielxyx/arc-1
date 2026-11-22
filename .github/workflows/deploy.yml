@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -19,9 +19,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+      - name: Tag this push
+        if: github.event_name == 'push'
+        run: node scripts/tag-version.mjs
+      - name: Write version
+        run: node scripts/write-version.mjs
       - run: npm install
       - run: npm run build
         env:

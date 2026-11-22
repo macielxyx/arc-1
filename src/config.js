@@ -1,7 +1,13 @@
 // ---- Edit this file to match your mailbox. No other code changes needed. ----
 
+// Shared mailbox this dashboard is reading. Add another name here when a second box is added.
+export const MAILBOX_NAME = 'CCSTXBilling';
+
 // Emails received before this date are ignored
-export const START_DATE = '2026-07-30';
+export const START_DATE = '2026-01-01';
+
+// Years offered in the dashboard filter. Add a year here when that data should appear.
+export const AVAILABLE_YEARS = [2026];
 
 // Folder paths (lowercase). Exactly "inbox" = Pending. Anything else = Completed,
 // except the lists below. Subfolders of Inbox (e.g. "inbox/done") count as filed.

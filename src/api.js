@@ -1,8 +1,5 @@
-import { makeMockRecords } from './mockData.js';
-
-const FLOW_URL = import.meta.env.VITE_FLOW_URL;
-export const usingMock = !FLOW_URL;
-export const refreshSeconds = Number(import.meta.env.VITE_REFRESH_SECONDS) || 60;
+import sealed from './mailbox.sealed.json';
+import { openSealed } from './lock.js';
 
 // Accepts a few likely field names from Power Automate so small naming
 // differences don't break anything. Edit here if your feed differs.
@@ -20,15 +17,17 @@ function normalize(row, i) {
   };
 }
 
-export async function fetchRecords() {
-  if (usingMock) {
-    await new Promise((r) => setTimeout(r, 400));
-    return makeMockRecords();
-  }
-  // Plain GET with no custom headers => no CORS preflight
-  const res = await fetch(FLOW_URL);
-  if (!res.ok) throw new Error(`Feed returned ${res.status}`);
-  const json = await res.json();
-  const rows = Array.isArray(json) ? json : json.emails ?? json.value ?? [];
-  return rows.map(normalize);
+export function recordsFrom(list) {
+  const byId = new Map();
+  list.forEach((row, i) => {
+    const record = normalize(row, i);
+    byId.set(record.messageId || record.id, record);
+  });
+  return [...byId.values()];
+}
+
+export async function openMailbox(password) {
+  const rows = await openSealed(sealed, password);
+  if (!rows) return null;
+  return recordsFrom(rows);
 }
