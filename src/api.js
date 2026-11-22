@@ -1,5 +1,8 @@
-import sealed from './mailbox.sealed.json';
+import txSealed from './mailbox.tx.sealed.json';
+import coSealed from './mailbox.co.sealed.json';
 import { openSealed } from './lock.js';
+
+const SEALED = { tx: txSealed, co: coSealed };
 
 // Accepts a few likely field names from Power Automate so small naming
 // differences don't break anything. Edit here if your feed differs.
@@ -27,7 +30,15 @@ export function recordsFrom(list) {
 }
 
 export async function openMailbox(password) {
-  const rows = await openSealed(sealed, password);
-  if (!rows) return null;
-  return recordsFrom(rows);
+  const opened = {};
+  for (const [id, sealed] of Object.entries(SEALED)) {
+    const rows = await openSealed(sealed, password);
+    if (!rows) return null;
+    opened[id] = rows;
+  }
+  const source = import.meta.env.DEV ? (await import('./dev-mailbox.js')).devMailboxRows() : opened;
+  return {
+    tx: recordsFrom(source.tx || []),
+    co: recordsFrom(source.co || []),
+  };
 }

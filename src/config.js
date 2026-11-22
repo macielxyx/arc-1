@@ -1,7 +1,10 @@
 // ---- Edit this file to match your mailbox. No other code changes needed. ----
 
-// Shared mailbox this dashboard is reading. Add another name here when a second box is added.
-export const MAILBOX_NAME = 'CCSTXBilling';
+// Each shared mailbox has its own folder under mailbox/ and its own sealed file.
+export const MAILBOXES = [
+  { id: 'tx', name: 'CCSTXBilling', folder: 'mailbox/tx' },
+  { id: 'co', name: 'CCSCOBilling', folder: 'mailbox/co' },
+];
 
 // Emails received before this date are ignored
 export const START_DATE = '2026-01-01';

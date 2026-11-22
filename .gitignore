@@ -4,5 +4,5 @@ dist
 .env.local
 .DS_Store
 **/.DS_Store
-mailbox/*.json
+mailbox/**/*.json
 public/mailbox.json

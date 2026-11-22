@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTheme } from './theme.js';
 import { Clock, FolderCheck, Inbox, Lock, Mails, Percent, Star, Trash2 } from 'lucide-react';
 import { enrich, summarize } from './analyze.js';
-import { AVAILABLE_YEARS, FLAGS, MAILBOX_NAME, REQUEST_TYPES } from './config.js';
+import { AVAILABLE_YEARS, FLAGS, MAILBOXES, REQUEST_TYPES } from './config.js';
 import release from './version.json';
 
 const DAY = 86400000;
@@ -56,8 +56,8 @@ function axisTicks(max) {
   return Array.from({ length: n + 1 }, (_, i) => step * i);
 }
 
-function useMailbox(records) {
-  return { data: records ?? [], loading: !records };
+function useMailbox(records, boxId) {
+  return { data: records?.[boxId] ?? [], loading: !records };
 }
 
 function useWidth() {
@@ -820,7 +820,9 @@ function Field({ label, children }) {
 
 export default function App({ records }) {
   const [theme, toggleTheme] = useTheme();
-  const { data, loading } = useMailbox(records);
+  const [boxId, setBoxId] = useState(MAILBOXES[0].id);
+  const box = MAILBOXES.find((item) => item.id === boxId) ?? MAILBOXES[0];
+  const { data, loading } = useMailbox(records, box.id);
   const [phase, setPhase] = useState('wait');
   if (phase === 'wait' && !loading && data.length) setPhase(REDUCE_MOTION ? 'done' : 'play');
   useEffect(() => {
@@ -976,7 +978,23 @@ export default function App({ records }) {
             <p>
               Shared mailbox
               <span className="dot-sep" aria-hidden="true" />
-              {MAILBOX_NAME}
+              <select
+                className="mailbox-pick"
+                value={box.id}
+                aria-label="Mailbox"
+                onChange={(e) => {
+                  setBoxId(e.target.value);
+                  setOwnersSel([]);
+                  setHiddenOwners([]);
+                  setHiddenMonths([]);
+                  setTypesSel([]);
+                  setStatusSel([]);
+                  setFlagsSel([]);
+                  setQ('');
+                }}
+              >
+                {MAILBOXES.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+              </select>
             </p>
           </div>
         </div>
@@ -1046,7 +1064,7 @@ export default function App({ records }) {
           {filtersOn ? <button type="button" className="clear" onClick={() => { setOwnersSel([]); setHiddenOwners([]); setHiddenMonths([]); setTypesSel([]); setStatusSel([]); setFlagsSel([]); }}>Clear filters</button> : null}
 
           <p className="side-label">Saved mail</p>
-          <p className="field-note">{data.length ? `${data.length} emails from the mailbox folder.` : 'No mail in the mailbox folder yet.'}</p>
+          <p className="field-note">{data.length ? `${data.length} emails in ${box.folder}.` : `No mail in ${box.folder} yet.`}</p>
 
           <div className="side-card">
             <span>{scope === 'year' ? (hiddenMonths.length ? periodLabel : 'This year') : 'This month'}</span>

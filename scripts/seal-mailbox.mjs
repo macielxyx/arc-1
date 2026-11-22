@@ -1,10 +1,10 @@
-import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { sealRecords } from '../src/lock.js';
+import { MAILBOX_IDS, readMailboxFolders } from './read-mailbox.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
-const dir = join(root, 'mailbox');
 const password = process.env.MAILBOX_PASSWORD;
 
 if (!password) {
@@ -12,15 +12,10 @@ if (!password) {
   process.exit(1);
 }
 
-function rowsOf(value) {
-  if (Array.isArray(value)) return value;
-  if (Array.isArray(value?.emails)) return value.emails;
-  if (Array.isArray(value?.value)) return value.value;
-  return [];
+const folders = readMailboxFolders(root);
+for (const id of MAILBOX_IDS) {
+  const rows = folders[id];
+  const sealed = await sealRecords(rows, password);
+  writeFileSync(join(root, 'src', `mailbox.${id}.sealed.json`), JSON.stringify(sealed));
+  console.log(`Sealed ${id}: ${rows.length} emails.`);
 }
-
-const names = readdirSync(dir).filter((name) => name.endsWith('.json')).sort();
-const rows = names.flatMap((name) => rowsOf(JSON.parse(readFileSync(join(dir, name), 'utf8'))));
-const sealed = await sealRecords(rows, password);
-writeFileSync(join(root, 'src/mailbox.sealed.json'), JSON.stringify(sealed));
-console.log(`Sealed ${rows.length} emails from ${names.length} files.`);
