@@ -30,6 +30,20 @@ jobs:
         run: node scripts/tag-version.mjs
       - name: Write version
         run: node scripts/write-version.mjs
+      - name: Encrypt uploaded mailbox files
+        env:
+          MAILBOX_PASSWORD: ${{ secrets.MAILBOX_PASSWORD }}
+        run: node scripts/ingest-mailbox.mjs
+      - name: Remove the readable mailbox files
+        run: |
+          git add src/mailbox.tx.sealed.json src/mailbox.co.sealed.json
+          git add -u mailbox
+          if git diff --cached --quiet; then
+            echo "No readable mailbox files to remove."
+            exit 0
+          fi
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m "Encrypt the uploaded mailbox files and remove the readable copies."
+          git push origin HEAD:main
       - run: npm install
       - run: npm run build
         env:
