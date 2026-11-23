@@ -1,4 +1,4 @@
-# Billing Mailbox Dashboard
+# ARC-1
 React + Vite. Runs on sample data until you add your Power Automate URL.
 
 ## Add a month
